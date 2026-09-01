@@ -390,6 +390,12 @@
   /* GAME HISTORY + H2H (user 2026-08-31d), same conventions as the mma
      History block: most recent first, W/L colouring, compact rows. */
   .ghist{margin:8px 0 2px}
+  /* The game-history block is a FOOTER PANEL (user 2026-09-01), reached from the
+     same Details|History chip bar the mma card uses -- NOT a section inside
+     Details. `.history` supplies the reveal (.bout.open .history{display:block});
+     this only supplies the padding a full-width panel needs. */
+  .history.ghpanel{padding:2px 10px 10px}
+  .history.ghpanel .ghist{margin-top:4px}
   .ghist .gh-head{display:flex;align-items:center;gap:8px;margin:8px 0 4px}
   .ghist .gh-title{color:var(--gold);font-weight:800;font-size:9.5px;
     letter-spacing:.5px;text-transform:uppercase}
@@ -2483,12 +2489,26 @@ function bindHistoryToggles(root){
   });
 }
 
+// The football game history rendered as a FOOTER PANEL, matching the mma
+// History convention exactly: a `.history` child of the bout, revealed by
+// `.bout.open`, built lazily on first open by boutView.setHistory.
+function gameHistoryView(bout){
+  const wrap = el("div","history ghpanel");
+  wrap._ghBout = bout;              // so an H2H toggle can re-render in place
+  wrap.innerHTML = historyBlock(bout);
+  bindHistoryToggles(wrap);
+  return wrap;
+}
+
 function detailsBox(bout){
   const thesis=(bout.pick&&bout.pick.thesis)||bout.note||null;
   const fHas=strikingBlock(bout.fav)+grapplingBlock(bout.fav);
   const dHas=strikingBlock(bout.dog)+grapplingBlock(bout.dog);
   const nums=numbersPanel(bout);          // football tabs only; "" otherwise
-  if(!thesis && !fHas && !dHas && !nums && !bout.history) return null;
+  // NOTE: bout.history is deliberately NOT part of this test -- game history is
+  // its own footer panel now, so a game with history but no numbers/thesis must
+  // still return null here and get a History chip from modelBar.
+  if(!thesis && !fHas && !dHas && !nums) return null;
   let h="";
   const timing=betTiming(bout.pick);
   if(timing) h+='<p class="d-timing"><b>Best Bet Timing:</b> '+timing+'</p>';
@@ -2503,13 +2523,7 @@ function detailsBox(bout){
   // The numbers lead: on a football tab they ARE the product, so they sit
   // above the prose thesis rather than under the striking/grappling columns.
   if(nums) h = nums + h;
-  // History sits under the numbers: the numbers are the product, the history
-  // is the context for them.
-  const hist = historyBlock(bout);
-  if(hist) h = h + hist;
   const box=el("div","thesisbox"); box.innerHTML=h;
-  box._ghBout = bout;              // so a toggle can re-render just this block
-  bindHistoryToggles(box);
   return box;
 }
 
@@ -2524,7 +2538,12 @@ function modelBar(bout){
   // null). So always render the bar when EITHER a Details box exists OR any fighter has history;
   // the "Model A% · B%" line is shown only when model_fav is available.
   const box=detailsBox(bout);
-  const hasHist=(bout.fav&&bout.fav.history&&bout.fav.history.length)
+  // Either kind of history earns the chip: mma per-fighter fight logs, or a
+  // football game-history object (`bout.history`, road/home logs + H2H).
+  const H = bout.history;
+  const hasGameHist = !!(H && ((H.fav&&H.fav.length)||(H.dog&&H.dog.length)||(H.h2h&&H.h2h.length)));
+  const hasHist=hasGameHist
+              ||(bout.fav&&bout.fav.history&&bout.fav.history.length)
               ||(bout.dog&&bout.dog.history&&bout.dog.history.length);
   if(!box && !hasHist) return null;          // nothing to expand at all
   const bar=el("div","modelbar");
@@ -2709,10 +2728,15 @@ function boutView(bout){
   const detailsChip=mb&&mb.querySelector('.dchip[data-sec="details"]');
   const histChip=mb&&mb.querySelector('.dchip[data-sec="history"]');
   function setHistory(on){
-    if(on && !built){ hv=historyView(bout); b.appendChild(hv); built=true; }
+    if(on && !built){
+      // football tabs carry a game-history object; mma bouts carry per-fighter
+      // fight logs. Same chip, same panel slot, same reveal.
+      hv = bout.history ? gameHistoryView(bout) : historyView(bout);
+      b.appendChild(hv); built=true;
+    }
     b.classList.toggle("open", on);
     if(histChip) histChip.classList.toggle("on", on);
-    if(on && hv) fitHistory(hv);   // measure only once visible
+    if(on && hv && !bout.history) fitHistory(hv);   // measure only once visible
   }
   function setDetails(on){
     if(!detailsBoxEl) return;
