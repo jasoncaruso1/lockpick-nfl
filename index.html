@@ -567,6 +567,30 @@
     padding:6px 8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
   .oddsrevert:hover{color:var(--gold);border-color:var(--gold-dim)}
   .oddsrevert[hidden]{display:none}
+  /* JUICE = "Bet all as pairs" (user 2026-09-10): juicebox icon, metallic red when active */
+  .juicebtn{background:var(--row);color:var(--dim);border:1px solid var(--line);border-radius:8px;
+    padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;line-height:0}
+  .juicebtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+  .juicebtn:hover{color:var(--fg)}
+  .juicebtn.active{color:#fff1ee;border-color:#8a1d12;text-shadow:0 1px 1px rgba(0,0,0,.45);
+    background:linear-gradient(95deg,#7d1a10,#d63a2a 30%,#f28a7c 50%,#c2311f 75%,#761308);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 0 8px rgba(214,58,42,.45)}
+  .juicebtn.active svg{stroke:#fff1ee}
+  .jpanel{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;margin:0 2px 10px;padding:8px 10px;
+    border:1px solid #8a1d12;border-radius:8px;background:rgba(214,58,42,.06)}
+  .jpanel .jf{display:flex;flex-direction:column;gap:3px}
+  .jpanel .jl{font-size:10px;color:var(--dim);letter-spacing:.3px;text-transform:uppercase}
+  .jpanel .jrow{display:inline-flex;align-items:center;gap:4px}
+  .jpanel input{width:72px;background:var(--row);border:1px solid var(--line);border-radius:6px;color:var(--fg);
+    font:inherit;font-size:12px;padding:4px 6px;font-variant-numeric:tabular-nums}
+  .jpanel .junit{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .jpanel .junit button{background:var(--row);color:var(--dim);border:none;padding:4px 6px;font:inherit;font-size:10.5px;
+    font-weight:800;cursor:pointer}
+  .jpanel .junit button.active{color:#fff1ee;background:linear-gradient(95deg,#7d1a10,#d63a2a 40%,#c2311f)}
+  .jpanel .jnote{flex-basis:100%;font-size:10.5px;color:var(--dim);line-height:1.4}
+  .jpanel .jnote b{color:#e06a5a}
+  .kcustom{width:46px;background:var(--row);border:1px solid var(--line);border-radius:6px;color:var(--fg);
+    font:inherit;font-size:11px;padding:3px 4px;font-variant-numeric:tabular-nums}
   .modetoggle{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
   .modebtn{background:var(--row);color:var(--dim);border:none;padding:6px 12px;font-size:12px;
     font-weight:800;letter-spacing:.5px;cursor:pointer;font-family:inherit}
@@ -1001,6 +1025,7 @@ table.fb-stack tr.star{background:rgba(212,175,55,.14)}
           <button id="k-freq" class="kbtn active" title="FreqAdj: size the book at the serving Kelly — re-tuned at production frequency/concurrency (green anchor; the published stakes)">FreqAdj</button>
         </div>
         <input id="kslider" class="kslider" type="range" min="1" max="100" step="1">
+        <input id="kcustom" class="kcustom" type="number" min="1" max="1000" step="1" inputmode="numeric" title="type any Kelly % directly (the toggle, the slider and this box are three ways to set the same number)">
         <span id="kpct" class="kpct kg"></span>
       </div>
       <div id="bettotals" class="bettotals" title="Risk = total staked across the slate | Win = total profit if every pick wins" hidden></div>
@@ -1008,6 +1033,7 @@ table.fb-stack tr.star{background:rgba(212,175,55,.14)}
         <input id="bankroll" type="number" min="0" step="0.01" inputmode="decimal" placeholder="bankroll"></label>
       <button id="odds-revert-all" class="oddsrevert" title="clear every manual odds adjustment on this card" hidden>↺ all</button>
       <button id="odds-edit-toggle" class="oddsbtn" title="Adjust odds: click a fighter's moneyline to enter a what-if price. Adjustments are saved in this browser and persist through reload until the published line for that fighter changes (a republish). EV and EDGE bet-size recompute at your price; picks are NOT re-gated.">✎ Odds</button>
+      <button id="juice-btn" class="juicebtn" title="JUICE — Bet all as pairs: every straight bet is folded into the pairs book, keeping each fighter's share of total risk and the total risk itself; pair sizes follow the pairs program's Kelly proportions. Parameters appear on the Pairs tab. EDGE only."><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7.5h12v12.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20z"/><path d="M6 7.5 8 4h8l2 3.5"/><path d="M6 11.5h12"/><path d="M14.5 7.5V3.2l2.3-1.4"/><path d="M9.5 15.2h5"/></svg></button>
       <div class="modetoggle" title="EDGE: the real book -- only bets inside the model gate, at Kelly sizes. SLATE: an ENTERTAINMENT mode that puts a pick on every fight and invests the whole bankroll across an event. SLATE is for having action on a full card, not for making money -- it is not designed to be a winner.">
         <button id="mode-edge" class="modebtn active">EDGE</button>
         <button id="mode-slate" class="modebtn">SLATE</button>
@@ -2124,11 +2150,14 @@ function updateKUI(){
   const st=_stk(DATA);
   const off=(BET_MODE!=="edge")||!st||!(st.k_pct>0);
   wrap.hidden=off; if(off) return;
-  const sl=document.getElementById("kslider"), rd=document.getElementById("kpct");
+  const sl=document.getElementById("kslider"), rd=document.getElementById("kpct"), kc=document.getElementById("kcustom");
   const K=effKForCard(DATA);
   sl.max=String(kSliderMax());
   sl.value=String(Math.max(1, Math.min(parseInt(sl.max,10), Math.round(K))));
-  rd.textContent=_kFmt(K);
+  if(kc && document.activeElement!==kc) kc.value=String(Math.round(K));
+  const _ovr=juiceOn()&&juiceOverride()!=null;
+  rd.textContent=_ovr?"override":_kFmt(K);
+  sl.disabled=_ovr; if(kc) kc.disabled=_ovr;
   rd.className="kpct "+kColorCls();
   const _bf=document.getElementById("k-freq"), _br=document.getElementById("k-raw");
   _bf.textContent = st.lbl_fa || "FreqAdj";
@@ -2351,6 +2380,10 @@ function _liveCards(){
   return __CARDS__ ? cards.filter(c=>!c.settled) : cards;
 }
 function rrAllPairs(){
+  if(juiceOn()) return juiceBoard().pairs;
+  return rrServedPairs();
+}
+function rrServedPairs(){
   const out=[];
   const cards = _liveCards();
   cards.forEach(c=>((c.data.parlays)||[]).forEach(p=>{ if(p.rr_book) out.push({p:p, host:c}); }));
@@ -2423,6 +2456,7 @@ function rrPairsForBout(eid, bout){
 // host = the {key,label,data} card record carrying the pair (its Kelly-slider factor
 // applies in EDGE mode); omitted -> the ACTIVE card's factor.
 function rrStake(p, host){
+  if(p&&p.juice) return (p.edge_slate_pct||0);          // JUICE pairs are already final
   if(BET_MODE!=="edge") return (p.slate_pct||0);
   return (p.edge_slate_pct||0)*kFactor(host?host.data:DATA)*slotCap().lam;
 }
@@ -2461,6 +2495,11 @@ function slotCap(){
       items.push({stake:p.edge_slate_pct*kf/100, ev:pj*dec-1, a:Math.min(...ts), b:Math.max(...ts), shrink:true});
     });
   });
+  _slotCache=slotSweep(items, cap);
+  return _slotCache;
+}
+// pure: items [{stake (fraction of bankroll), ev, a (place time), b (settle time), shrink}]
+function slotSweep(items, cap){
   let lam=1, bind=null, peak=0;
   if(items.length){
     const times=Array.from(new Set(items.flatMap(i=>[i.a,i.b]))).sort((x,y)=>x-y);
@@ -2477,9 +2516,239 @@ function slotCap(){
       if(lt!=null&&lt<lam){ lam=lt; bind=t; }
     });
   }
-  _slotCache={lam:Math.min(1,lam), t:bind, peak:peak};
-  return _slotCache;
+  return {lam:Math.min(1,lam), t:bind, peak:peak};
 }
+
+// ============================================================================
+// JUICE — "Bet all as pairs" (user 2026-09-10). EDGE only.
+//   [a] total risk T across the cards in view (Pairs-tab promotion filter), straights
+//       + pairs, at the current Kelly setting (or the Risk Override);
+//   [b] each fighter's share of total exposure e_i (straight stake + every pair touching
+//       them); targets r_i = e_i * 2T / sum(e) -- a pair dollar covers two fighters, so
+//       holding T fixed lifts every exposure uniformly: the leverage, ratios intact;
+//   [c] every cross-bout pair of fighters with non-zero exposure and a positive parlay
+//       Kelly is a candidate;
+//   [d] pair stakes x_ij = a_i a_j w_ij with w_ij = full parlay Kelly (the pairs program's
+//       proportions) and the a_i solved so every row sums to r_i (symmetric Sinkhorn /
+//       matrix balancing = min divergence from the Kelly proportions s.t. the marginals).
+//   Then: bout cap on the targets (excess redistributed pro rata), min stake + max pairs
+//   (drop, re-balance on the reduced support), and the slot cap sweep on the result.
+// ============================================================================
+let JUICE=false;
+let _juiceCache=null;             // cleared with the Kelly memo on every render
+const _JUICE_LS="lockpick.juice.v1";
+const JUICE_DEF={min_pct:1.0, min_unit:"pct", bout_pct:8.0, bout_unit:"pct", slot_pct:100.0, slot_unit:"pct",
+                 max_pairs:"", ovr_pct:"", ovr_unit:"pct", prevK:null};
+let JP=Object.assign({}, JUICE_DEF);
+function juiceLoad(){ try{ const j=JSON.parse(localStorage.getItem(_JUICE_LS)||"null"); if(j) JP=Object.assign({}, JUICE_DEF, j); }catch(e){} }
+function juiceSave(){ try{ localStorage.setItem(_JUICE_LS, JSON.stringify(JP)); }catch(e){} }
+juiceLoad();
+function juiceOn(){ return JUICE && BET_MODE==="edge"; }
+function juiceOverride(){ const v=parseFloat(JP.ovr_pct); return (isFinite(v)&&v>0)?v:null; }
+// default Min Stake = greater of $5 and 1% of bankroll (as % of bankroll)
+function juiceMinDefaultPct(){ return BANKROLL>0 ? Math.max(1.0, 5/BANKROLL*100) : 1.0; }
+
+// pure balancing core. fighters: [{key, target (fraction), p, dec, bout}], opts {minStake (fraction), maxPairs}
+// returns {pairs:[{i,j,stake}], unplaced:[keys], iters, converged}
+function juiceBalance(fighters, opts){
+  const F=fighters.filter(f=>f.target>0 && f.p>0 && f.dec>1);
+  const nF=F.length, W=[];
+  for(let i=0;i<nF;i++){ W.push(new Float64Array(nF)); }
+  for(let i=0;i<nF;i++) for(let j=i+1;j<nF;j++){
+    if(F[i].bout===F[j].bout) continue;
+    const d=F[i].dec*F[j].dec, pj=F[i].p*F[j].p, kf=(pj*d-1)/(d-1);
+    if(kf>0){ W[i][j]=kf; W[j][i]=kf; }
+  }
+  let alive=F.map(()=>true), support=W.map(r=>r.map(v=>v>0?1:0));
+  let X=null, iters=0, converged=false, unplaced=[];
+  for(let round=0; round<8; round++){
+    // targets on the alive set: keep the alive fighters' ratios, keep sum = 2T over ALIVE
+    const tot=F.reduce((a,f,i)=>a+(alive[i]?f.target:0),0);
+    const a=new Float64Array(nF).fill(1);
+    let ok=false;
+    for(iters=0; iters<400; iters++){
+      let maxd=0;
+      for(let i=0;i<nF;i++){
+        if(!alive[i]) continue;
+        let sum=0; for(let j=0;j<nF;j++) if(alive[j]&&support[i][j]) sum+=a[j]*W[i][j];
+        if(sum<=0){ a[i]=0; continue; }
+        const ni=F[i].target/sum; maxd=Math.max(maxd, Math.abs(ni-a[i])/(ni||1)); a[i]=Math.sqrt(a[i]*ni)||ni;
+      }
+      if(maxd<1e-7){ ok=true; break; }
+    }
+    X=W.map((r,i)=>r.map((w,j)=>(alive[i]&&alive[j]&&support[i][j])?a[i]*a[j]*w:0));
+    // rows that could not be met (no partners) -> unplaced
+    let changed=false;
+    for(let i=0;i<nF;i++){ if(!alive[i]) continue;
+      const rs=X[i].reduce((s,v)=>s+v,0);
+      if(!(rs>0)||Math.abs(rs-F[i].target)/F[i].target>0.02){ alive[i]=false; unplaced.push(F[i].key); changed=true; }
+    }
+    if(changed) continue;
+    // min stake: drop pairs below the floor from the support and re-balance
+    const minS=opts.minStake||0; let dropped=0;
+    if(minS>0) for(let i=0;i<nF;i++) for(let j=i+1;j<nF;j++) if(support[i][j]&&X[i][j]>0&&X[i][j]<minS){ support[i][j]=support[j][i]=0; dropped++; }
+    // max pairs: keep the largest N
+    const mp=parseInt(opts.maxPairs,10);
+    if(isFinite(mp)&&mp>0){
+      const list=[]; for(let i=0;i<nF;i++) for(let j=i+1;j<nF;j++) if(support[i][j]&&X[i][j]>0) list.push([X[i][j],i,j]);
+      if(list.length>mp){ list.sort((u,v)=>v[0]-u[0]); list.slice(mp).forEach(([,i,j])=>{ support[i][j]=support[j][i]=0; dropped++; }); }
+    }
+    converged=ok;
+    if(!dropped) break;
+  }
+  const pairs=[];
+  for(let i=0;i<nF;i++) for(let j=i+1;j<nF;j++) if(X&&X[i][j]>0) pairs.push({i:F[i], j:F[j], stake:X[i][j]});
+  return {pairs:pairs, unplaced:unplaced, iters:iters, converged:converged};
+}
+
+function juiceBoard(){
+  if(_juiceCache) return _juiceCache;
+  const note=[];
+  const cards=_liveCards().filter(c=>(c.site||"mma")==="mma");
+  const sel=_rrPromoSel;
+  const inView=cards.filter(c=>sel==null||sel.has(c.label||c.key));
+  const ovr=juiceOverride();
+  // [a]+[b]: exposure per fighter from the served book; at the override the RATIOS come
+  // from the served stakes (kf=1) and T is the override; otherwise the slider's stakes.
+  const kf=c=>ovr!=null?1:kFactor(c.data);
+  const exp={}, meta={};                   // key -> exposure (% of bankroll)
+  let T=0;
+  const viewKeys=new Set(inView.map(c=>String((c.data.event||{}).id)));
+  inView.forEach(c=>{
+    const ev=c.data.event||{}, f=kf(c);
+    (c.data.bouts||[]).forEach((b,bi)=>{
+      const p=b.pick;
+      [["fav",b.fav],["dog",b.dog]].forEach(([side,fi])=>{
+        if(!fi||fi.id==null) return;
+        const key=ev.id+":"+fi.id;
+        const mf=(b.model_fav!=null)?(side==="fav"?b.model_fav/100:1-b.model_fav/100):null;
+        const dec=amToDec(effOdds(fi));
+        meta[key]={key:key, name:fi.name, event_id:ev.id, side_id:fi.id, event:ev.name, p:mf, dec:dec,
+                   bout:ev.id+"#"+bi, host:c, odds:effOdds(fi)};
+      });
+      if(p&&!p.parlay&&p.gated&&p.edge_slate_pct>0&&!p.winner_agnostic){
+        const fi=(b.fav&&b.fav.name===p.side)?b.fav:((b.dog&&b.dog.name===p.side)?b.dog:null);
+        if(fi){ const key=ev.id+":"+fi.id, st=p.edge_slate_pct*f; exp[key]=(exp[key]||0)+st; T+=st; }
+      }
+    });
+  });
+  rrServedPairs().forEach(pr=>{
+    const p=pr.p, legs=p.legs||[];
+    if(legs.length!==2||!legs.every(l=>viewKeys.has(String(l.event_id)))) return;
+    const st=(p.edge_slate_pct||0)*kf(pr.host); if(!(st>0)) return;
+    legs.forEach(l=>{ const key=l.event_id+":"+l.side_id; exp[key]=(exp[key]||0)+st; });
+    T+=st;
+  });
+  const base=T;
+  if(ovr!=null) T=ovr;
+  const sumE=Object.values(exp).reduce((a,b)=>a+b,0);
+  if(!(sumE>0)||!(T>0)){ _juiceCache={pairs:[], note:["No EDGE exposure in view to fold into pairs."], T:0, base:base}; return _juiceCache; }
+  // targets (fractions), bout cap with pro-rata redistribution of the excess
+  const cap=parseFloat(JP.bout_pct); const capF=(isFinite(cap)&&cap>0)?cap/100:Infinity;
+  let r={}; Object.keys(exp).forEach(k=>{ r[k]=exp[k]*2*T/sumE/100; });
+  for(let it=0; it<30; it++){
+    let excess=0, free=0;
+    Object.keys(r).forEach(k=>{ if(r[k]>capF){ excess+=r[k]-capF; r[k]=capF; } else if(r[k]<capF) free+=r[k]; });
+    if(excess<=1e-12||free<=0) break;
+    Object.keys(r).forEach(k=>{ if(r[k]<capF) r[k]+=excess*r[k]/free; });
+  }
+  const fighters=Object.keys(r).map(k=>Object.assign({target:r[k]}, meta[k]||{key:k})).filter(f=>f.p!=null&&f.dec);
+  const missing=Object.keys(r).filter(k=>!(meta[k]&&meta[k].p!=null&&meta[k].dec)).map(k=>(meta[k]||{}).name||k);
+  if(missing.length) note.push("Unpriced or unmodelled, left out: "+missing.join(", ")+".");
+  const minPct=parseFloat(JP.min_pct); const minF=(isFinite(minPct)&&minPct>0)?minPct/100:0;
+  const res=juiceBalance(fighters, {minStake:minF, maxPairs:JP.max_pairs});
+  if(res.unplaced.length) note.push("No compatible partner for: "+res.unplaced.map(k=>(meta[k]||{}).name||k).join(", ")+" -- their exposure is not placed.");
+  if(!res.converged) note.push("<b>Balancing did not fully converge</b> -- the targets may be infeasible on this support; stakes shown are the last iterate.");
+  // synthetic pair records in the served shape
+  let pairs=res.pairs.map(q=>{
+    const A=q.i, B=q.j, dec=A.dec*B.dec, pj=A.p*B.p;
+    const ra=rrLegRec({event_id:A.event_id, side_id:A.side_id}), rb=rrLegRec({event_id:B.event_id, side_id:B.side_id});
+    const ta=(ra&&ra.sort!=null)?ra.sort:9e15, tb=(rb&&rb.sort!=null)?rb.sort:9e15;
+    const first=(tb<ta)?B:A;
+    const rec={juice:true, rr_book:true, gated:true, market:"Parlay", conviction:"med",
+      fighters:[A.name,B.name], label:A.name+" + "+B.name, bet:"JUICE pair: "+A.name+" + "+B.name, side:A.name,
+      legs:[{fighters:[A.name],side:A.name,bet:A.name+" ML",side_id:A.side_id,event_id:A.event_id,dk_odds:A.odds,prob:A.p,event:A.event},
+            {fighters:[B.name],side:B.name,bet:B.name+" ML",side_id:B.side_id,event_id:B.event_id,dk_odds:B.odds,prob:B.p,event:B.event}],
+      prob:pj, dk_odds:decToAm(dec), edge_slate_pct:q.stake*100, slate_pct:0,
+      thesis:"JUICE: "+A.name+" and "+B.name+" folded into one pair; size = their shares of the weekend's risk balanced to the pairs program's Kelly proportions.",
+      _a:ta, _b:tb};
+    return {p:rec, host:first.host};
+  });
+  // slot cap on the synthetic board (pairs only -- straights have been folded in)
+  const sc=parseFloat(JP.slot_pct); const scF=(isFinite(sc)&&sc>0)?sc/100:1;
+  const items=pairs.filter(pr=>pr.p._a<9e15&&pr.p._b<9e15).map(pr=>({stake:pr.p.edge_slate_pct/100, ev:pr.p.prob*amToDec(pr.p.dk_odds)-1, a:Math.min(pr.p._a,pr.p._b), b:Math.max(pr.p._a,pr.p._b), shrink:true}));
+  const sw=slotSweep(items, scF);
+  if(sw.lam<1-1e-9){
+    pairs.forEach(pr=>{ pr.p.edge_slate_pct*=sw.lam; });
+    const when=sw.t!=null?new Date(sw.t*60000).toLocaleString("en-US",{weekday:"short",hour:"numeric",minute:"2-digit"}):"";
+    note.push("Slot cap "+(scF*100).toFixed(0)+"%: every pair scaled x"+sw.lam.toFixed(3)+" (locked stake would exceed the cap at "+when+" ET).");
+  }
+  const placed=pairs.reduce((a,pr)=>a+pr.p.edge_slate_pct,0);
+  _juiceCache={pairs:pairs, note:note, T:T, base:base, placed:placed, nF:fighters.length, unplaced:res.unplaced.length};
+  return _juiceCache;
+}
+
+// ---- JUICE UI: toolbar button, Pairs-tab parameter panel, risk override ----
+function setJuice(on){
+  JUICE=!!on;
+  if(JUICE && BET_MODE!=="edge") setBetMode("edge");
+  const b=document.getElementById("juice-btn"); if(b) b.classList.toggle("active", JUICE);
+  if(JUICE && juiceOverride()!=null) _applyOverrideK();
+  if(!JUICE && juiceOverride()!=null) _restorePrevK();
+  render(); refreshSlateLabels(); refitAll();
+}
+function _applyOverrideK(){
+  if(JP.prevK==null){ JP.prevK={mode:_kMode, sel:_kSel}; juiceSave(); }
+  _kMode="num"; _kSel=100;
+}
+function _restorePrevK(){
+  if(JP.prevK){ _kMode=JP.prevK.mode||"fa"; _kSel=JP.prevK.sel; JP.prevK=null; juiceSave(); }
+}
+function _jval(pct, unit){   // canonical % -> display value in the chosen unit
+  const v=parseFloat(pct); if(!isFinite(v)) return "";
+  return unit==="usd"&&BANKROLL>0 ? (BANKROLL*v/100).toFixed(2) : String(Math.round(v*100)/100);
+}
+function _jpct(val, unit){   // display value -> canonical %
+  const v=parseFloat(val); if(!isFinite(v)||v<0) return "";
+  return unit==="usd"&&BANKROLL>0 ? v/BANKROLL*100 : v;
+}
+function juicePanelHtml(){
+  if(!juiceOn()) return "";
+  const jb=juiceBoard();
+  const usd=BANKROLL>0;
+  if(JP.min_pct==="" || JP.min_pct==null) JP.min_pct=juiceMinDefaultPct();
+  const unitBtns=(name)=> usd ? '<span class="junit" data-f="'+name+'"><button data-u="usd"'+(JP[name+"_unit"]==="usd"?' class="active"':'')+'>$</button><button data-u="pct"'+(JP[name+"_unit"]!=="usd"?' class="active"':'')+'>%</button></span>' : '<span class="jl">%</span>';
+  const unit=name=> usd ? JP[name+"_unit"] : "pct";
+  const field=(name,lbl,title)=>'<span class="jf" title="'+title+'"><span class="jl">'+lbl+'</span><span class="jrow"><input id="j-'+name+'" data-f="'+name+'" type="number" min="0" step="any" value="'+_jval(JP[name+"_pct"], unit(name))+'">'+unitBtns(name)+'</span></span>';
+  const money_=v=>usd?money(BANKROLL*v/100):v.toFixed(2)+"%";
+  const summary='<span class="jnote">Bet all as pairs: <b>'+jb.pairs.length+'</b> pairs over '+(jb.nF||0)+' fighters · total risk '
+    +money_(jb.placed||0)+(jb.T?' of target '+money_(jb.T):'')+(juiceOverride()!=null?' (override; the served book at this Kelly setting was '+money_(jb.base||0)+')':'')
+    +(jb.note&&jb.note.length?' · '+jb.note.join(' '):'')+'</span>';
+  return '<div class="jpanel" id="jpanel">'
+    +field("min","Min stake","smallest pair allowed; pairs below it are dropped and the rest re-balanced. Default: the greater of $5 and 1% of bankroll.")
+    +field("bout","Bout cap","maximum exposure on any one fighter; excess is redistributed pro rata. Default 8% of bankroll.")
+    +field("slot","Slot cap","maximum locked stake at any settlement slot vs expected bankroll (the same sweep as the served cap). Default 100%.")
+    +'<span class="jf" title="keep only the N largest pairs, then re-balance"><span class="jl">Max pairs</span><span class="jrow"><input id="j-max" type="number" min="1" step="1" value="'+(JP.max_pairs||"")+'" placeholder="all"></span></span>'
+    +'<span class="jf" title="set the total risk directly; the Kelly slider shows 100% while an override is set and your previous setting is restored when it is cleared"><span class="jl">Risk override</span><span class="jrow"><input id="j-ovr" data-f="ovr" type="number" min="0" step="any" value="'+_jval(JP.ovr_pct, unit("ovr"))+'" placeholder="none">'+unitBtns("ovr")+'</span></span>'
+    +summary+'</div>';
+}
+function bindJuicePanel(box){
+  const pnl=box.querySelector("#jpanel"); if(!pnl) return;
+  pnl.querySelectorAll("input[data-f]").forEach(inp=>inp.addEventListener("change",()=>{
+    const f=inp.dataset.f, unit=BANKROLL>0?JP[f+"_unit"]:"pct";
+    const v=_jpct(inp.value, unit);
+    if(f==="ovr"){
+      const had=juiceOverride()!=null; JP.ovr_pct=v; const has=juiceOverride()!=null;
+      if(has&&!had) _applyOverrideK(); if(!has&&had) _restorePrevK();
+    } else JP[f+"_pct"]=(v===""?JUICE_DEF[f+"_pct"]:v);
+    juiceSave(); _juiceCache=null; render(); refreshSlateLabels(); refitAll();
+  }));
+  const mx=pnl.querySelector("#j-max"); if(mx) mx.addEventListener("change",()=>{ JP.max_pairs=mx.value; juiceSave(); _juiceCache=null; renderRR(); });
+  pnl.querySelectorAll(".junit button").forEach(b=>b.addEventListener("click",()=>{
+    const f=b.parentElement.dataset.f; JP[f+"_unit"]=b.dataset.u; juiceSave(); renderRR();
+  }));
+}
+document.getElementById("juice-btn").addEventListener("click",()=>setJuice(!JUICE));
 function slotCapNote(){
   const sc=slotCap();
   if(BET_MODE!=="edge"||sc.lam>=1-1e-9) return "";
@@ -2523,9 +2792,9 @@ function renderRR(){
   const pairs=rrAllPairs().filter(pr=>rrStake(pr.p, pr.host)>0);
   _rrTot={r:0,w:0};
   if(!pairs.length){
-    box.innerHTML='<p class="subtle">No pairs are in play in '
-      +(BET_MODE==="edge"?"EDGE":"SLATE")+' mode.</p>';
-    renderBetTotals(); return;
+    box.innerHTML=juicePanelHtml()+'<p class="subtle">No pairs are in play in '
+      +(juiceOn()?"JUICE":(BET_MODE==="edge"?"EDGE":"SLATE"))+' mode.</p>';
+    bindJuicePanel(box); renderBetTotals(); return;
   }
   // one record per pair with every displayed value + sort key precomputed.
   // PER-LEG times (2026-07-30): time1/time2 are full DATETIMEs (minutes since epoch:
@@ -2659,7 +2928,7 @@ function renderRR(){
     '<th class="rr-sorth'+(k===c.key?' rr-sorton':'')+'" data-key="'+c.key
     +'" title="click to sort by '+c.lbl+'">'+c.lbl+(k===c.key?(dir>0?' ▲':' ▼'):'')+'</th>').join("");
   const cnt=shown.length+(shown.length!==recs.length?' of '+recs.length:'')+' pairs';
-  box.innerHTML=slotCapNote()+chips
+  box.innerHTML=juicePanelHtml()+slotCapNote()+chips
     +(shown.length
       ? '<div class="rrscroll"><table id="rrtable">'
         +'<thead><tr>'+head+'</tr></thead>'
@@ -2746,6 +3015,7 @@ function renderRR(){
     renderRR();
   }));
   _rrTot={r:totR,w:totW};   // header Risk/Win box tracks the DISPLAYED (filtered) set
+  bindJuicePanel(box);
   renderBetTotals();
 }
 function showRR(highlightKey){
@@ -4117,7 +4387,7 @@ function boutView(bout){
   // gold banner across the top; in EDGE mode only GATED bouts carry a pick.
   // Fights with no pick (e.g. non-gated in EDGE) still show a BLANK banner so
   // the card layout stays uniform.
-  const showPick = bout.pick && !(BET_MODE==="edge" && !bout.pick.gated);
+  const showPick = bout.pick && !(BET_MODE==="edge" && !bout.pick.gated) && !juiceOn();   // JUICE: straights live in the pairs
   // DUAL mode (2026-07-28 (2)): a fight may be BOTH a straight bet and an RR
   // member -- the gold pick bar and the teal RR banner stack; either alone
   // takes the slot; neither -> blank keeps the layout uniform.
@@ -4215,7 +4485,7 @@ function boutView(bout){
 }
 
 function render(){
-  _kfCache={}; _slotCache=null;           // Kelly-slider factors + slot cap: recompute on every render
+  _kfCache={}; _slotCache=null; _juiceCache=null;   // Kelly-slider factors + slot cap + JUICE board: recompute on every render
   applyOverrides();                       // apply/prune browser-local odds what-ifs first
   updateKUI();                            // slider anchors/readout follow the ACTIVE card
   const revAll=document.getElementById("odds-revert-all");
@@ -4336,6 +4606,15 @@ function _kToggle(side){
   render(); refreshSlateLabels(); refitAll();
 }
 document.getElementById("k-freq").addEventListener("click",()=>_kToggle("fa"));
+// custom Kelly % box: a third way to set the same number (toggle | slider | typed)
+document.getElementById("kcustom").addEventListener("change",e=>{
+  const v=parseFloat(e.target.value); if(!isFinite(v)||v<=0) return;
+  const st=(DATA&&DATA.staking)||{};
+  if(st.k_pct>0&&Math.abs(v-st.k_pct)<1e-6){ _kMode="fa"; _kSel=null; }
+  else if(st.k_raw_pct>0&&Math.abs(v-st.k_raw_pct)<1e-6){ _kMode="ro"; _kSel=null; }
+  else { _kMode="num"; _kSel=v; }
+  render(); refreshSlateLabels(); refitAll();
+});
 document.getElementById("k-raw").addEventListener("click",()=>_kToggle("ro"));
 document.getElementById("bankroll").addEventListener("input",e=>{
   BANKROLL=parseFloat(e.target.value)||0; refreshSlateLabels();
